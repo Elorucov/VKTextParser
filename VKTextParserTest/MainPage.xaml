@@ -1,0 +1,21 @@
+﻿<Page
+    x:Class="VKTextParserTest.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:VKTextParserTest"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource SystemControlAcrylicWindowBrush}" Loaded="OnLoaded">
+
+    <Grid Margin="6">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <TextBox x:Name="Plain" Margin="6" Grid.Column="0" TextWrapping="Wrap" IsSpellCheckEnabled="False" TextChanging="OnTextChanging"/>
+        <ScrollViewer Margin="6" Grid.Column="1">
+            <RichTextBlock x:Name="Result" TextWrapping="Wrap"/>
+        </ScrollViewer>
+    </Grid>
+</Page>
