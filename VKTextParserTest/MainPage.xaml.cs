@@ -20,6 +20,7 @@ namespace VKTextParserTest {
         private async void OnLoaded(object sender, RoutedEventArgs e) {
             string test = "Это [club171015120|группа] приложения Laney, а [id172894294|Эльчин Оруджев] — его разработчик. Сайт разработчика: https://elor.top, почта: me@elor.top.\n";
             test += "Домен с точкой [id0|@test.az]; а это — [https://vk.com/spacevk|ссылка].";
+            test += "\nABCD[id1|EFGH]IJKL[club1|MNOP]QR[https://vk.com/bagledi|ST]UVW[event1|XYZ]";
 
             await Task.Delay(100);
             Plain.Text = test;
