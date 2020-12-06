@@ -84,8 +84,8 @@ namespace VKTextParserTest {
             List<string> words = GetWords(plain);
             foreach (string word in words) {
 
-                if (ParseBracketWord(raw, userRegex, word, "https://vk.com")) continue;
-                if (ParseBracketWord(raw, groupRegex, word, "https://vk.com")) continue;
+                if (ParseBracketWord(raw, userRegex, word, "https://vk.com/")) continue;
+                if (ParseBracketWord(raw, groupRegex, word, "https://vk.com/")) continue;
                 if (ParseLinkInBracketWord(raw, linkInTextRegex, word)) continue;
 
                 Match mailMatch = mailRegex.Match(word);
