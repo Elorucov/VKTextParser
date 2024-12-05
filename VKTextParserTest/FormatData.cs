@@ -10,7 +10,7 @@ namespace VKTextParserTest {
         public const string BOLD = "bold";
         public const string ITALIC = "italic";
         public const string UNDERLINE = "underline";
-        public const string LINK = "link";
+        public const string LINK = "url";
     }
 
     public class FormatDataItem {
