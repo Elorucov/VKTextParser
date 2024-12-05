@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using Windows.UI.Text;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Documents;
 
@@ -24,8 +24,30 @@ namespace VKTextParserTest {
         }
     }
 
+    public enum TextChunkType : byte { Plain = 1, Bold = 2, Italic = 4, Underline = 8, Link = 16 }
+
+    public class TextChunk {
+        public string Text { get; private set; }
+        public TextChunkType Type { get; private set; }
+        public string Url { get; private set; }
+
+        public TextChunk(string text, TextChunkType type = TextChunkType.Plain, string url = null) {
+            Text = text;
+            Type = type;
+            Url = url;
+        }
+    }
+
+    public class TextParsingResult {
+        public string PlainText { get; set; }
+
+        public List<TextChunk> Chunks { get; set; }
+
+        public List<Inline> TextBlockChunks { get; set; }
+    }
+
     public class VKTextParser {
-        static Regex urlRegex = new Regex(@"(?:(?:http|https):\/\/)?([-a-zA-Z0-9а-яА-Я.]{2,256}\.[a-zа-я]{2,8})\b(?:\/[-a-zA-Z0-9а-яА-Я@:%_\+.~#?&//=]*)?", RegexOptions.Compiled);
+        static Regex urlRegex = new Regex(@"(?:(?:http|https):\/\/)?([a-z0-9.\-]*\.)?([-a-zA-Z0-9а-яА-Я]{1,256})\.([-a-zA-Z0-9а-яА-Я]{2,8})\b(?:\/[-a-zA-Z0-9а-яА-Я@:%_\+.~#?!&\/=]*)?", RegexOptions.Compiled);
         static Regex mailRegex = new Regex(@"([\w\d.]+)@([a-zA-Z0-9а-яА-Я.]{2,256}\.[a-zа-я]{2,8})", RegexOptions.Compiled);
         static Regex userRegex = new Regex(@"\[(id)(\d+)\|(.*?)\]", RegexOptions.Compiled);
         static Regex groupRegex = new Regex(@"\[(club|public|event)(\d+)\|(.*?)\]", RegexOptions.Compiled);
@@ -86,46 +108,99 @@ namespace VKTextParserTest {
 
         #endregion
 
-        #region For RichTextBlock
+        public static TextParsingResult ParseText(string plain, FormatData formatData = null, Action<string> linkClickedCallback = null) {
+            TextParsingResult result = new TextParsingResult();
+            FormatData fdata = formatData ?? new FormatData();
+            if (fdata.Items == null) fdata.Items = new List<FormatDataItem>();
 
-        private static Run BuildRunForRTBStyle(string text, RichTextBlock rtb) {
-            return new Run {
-                Text = text,
-                FontFamily = rtb.FontFamily,
-            };
-        }
-
-        private static Hyperlink BuildHyperlinkForRTBStyle(string text, string link, RichTextBlock rtb, Action<string> clickedCallback) {
-            Hyperlink h = new Hyperlink {
-                FontFamily = rtb.FontFamily,
-            };
-            h.Inlines.Add(new Run { Text = text });
-            h.Click += (a, b) => { clickedCallback?.Invoke(link); };
-            return h;
-        }
-
-        public static void SetText(string plain, RichTextBlock rtb, Action<string> linksClickedCallback = null) {
-            Paragraph p = new Paragraph();
-
-            foreach (var token in GetRaw(plain)) {
-                if (String.IsNullOrEmpty(token.Item1)) {
-                    p.Inlines.Add(BuildRunForRTBStyle(token.Item2, rtb));
-                } else {
-                    Hyperlink h = BuildHyperlinkForRTBStyle(token.Item2, token.Item1, rtb, linksClickedCallback);
-                    p.Inlines.Add(h);
+            // Parse inline links to add it to FormatData object.
+            var raw = GetRaw(plain);
+            StringBuilder sb = new StringBuilder();
+            foreach (var rawData in raw) {
+                if (!string.IsNullOrEmpty(rawData.Item1)) {
+                    fdata.Items.Add(new FormatDataItem { 
+                        Type = FormatDataTypes.LINK,
+                        Url = rawData.Item1,
+                        Offset = sb.Length,
+                        Length = rawData.Item2.Length,
+                    });
                 }
+                sb.Append(rawData.Item2);
+            }
+            result.PlainText = sb.ToString();
+
+            // Create chunks
+            result.Chunks = new List<TextChunk>();
+            StringBuilder chunkSB = new StringBuilder();
+            TextChunkType tcType = TextChunkType.Plain;
+            string url = null;
+            if (fdata.Items.Count > 0) {
+                for (int i = 0; i < result.PlainText.Length; i++) {
+                    var intersects = fdata.Items.Where(fdi => fdi.Offset <= i && fdi.Offset + fdi.Length > i);
+                    if (intersects.Count() == 0) { // если буква не имеет никаких стилей или ссылок
+                        if (tcType != TextChunkType.Plain) {
+                            result.Chunks.Add(new TextChunk(chunkSB.ToString(), tcType, url));
+                            tcType = TextChunkType.Plain;
+                            chunkSB.Clear();
+                        }
+                        chunkSB.Append(result.PlainText[i]);
+                    } else { // если имеет стили и ссылки
+                        TextChunkType tcType2 = TextChunkType.Plain;
+                        string url2 = null;
+                        foreach (var fdi in intersects) {
+                            switch (fdi.Type) {
+                                case FormatDataTypes.BOLD:
+                                    tcType2 = tcType2 | TextChunkType.Bold;
+                                    break;
+                                case FormatDataTypes.ITALIC:
+                                    tcType2 = tcType2 | TextChunkType.Italic;
+                                    break;
+                                case FormatDataTypes.UNDERLINE:
+                                    tcType2 = tcType2 | TextChunkType.Underline;
+                                    break;
+                                case FormatDataTypes.LINK:
+                                    tcType2 = tcType2 | TextChunkType.Link;
+                                    url2 = fdi.Url;
+                                    break;
+                            }
+                        }
+                        if (tcType2 != tcType || url != url2) {
+                            result.Chunks.Add(new TextChunk(chunkSB.ToString(), tcType, url));
+                            tcType = tcType2;
+                            url = url2;
+                            chunkSB.Clear();
+                        }
+                        chunkSB.Append(result.PlainText[i]);
+                    }
+                }
+                result.Chunks.Add(new TextChunk(chunkSB.ToString(), tcType, url));
+                chunkSB.Clear();
+
+                result.TextBlockChunks = new List<Inline>();
+                foreach (var chunk in result.Chunks) {
+                    if (chunk.Type.HasFlag(TextChunkType.Link) && Uri.IsWellFormedUriString(chunk.Url, UriKind.Absolute)) {
+                        Hyperlink hl = new Hyperlink();
+                        hl.Click += (a, b) => linkClickedCallback?.Invoke(chunk.Url);
+                        hl.Inlines.Add(new Run { Text = chunk.Text });
+                        if (chunk.Type.HasFlag(TextChunkType.Bold)) hl.FontWeight = FontWeights.SemiBold;
+                        if (chunk.Type.HasFlag(TextChunkType.Italic)) hl.FontStyle = FontStyle.Italic;
+                        if (chunk.Type.HasFlag(TextChunkType.Underline)) hl.TextDecorations = TextDecorations.Underline;
+                        result.TextBlockChunks.Add(hl);
+                    } else {
+                        Run run = new Run { Text = chunk.Text };
+                        if (chunk.Type.HasFlag(TextChunkType.Bold)) run.FontWeight = FontWeights.SemiBold;
+                        if (chunk.Type.HasFlag(TextChunkType.Italic)) run.FontStyle = FontStyle.Italic;
+                        if (chunk.Type.HasFlag(TextChunkType.Underline)) run.TextDecorations = TextDecorations.Underline;
+                        result.TextBlockChunks.Add(run);
+                    }
+                }
+            } else {
+                result.TextBlockChunks = new List<Inline>() {
+                    new Run() { Text = result.PlainText },
+                };
             }
 
-            rtb.Blocks.Clear();
-            rtb.Blocks.Add(p);
-        }
-
-        #endregion
-
-        public static string GetParsedText(string plain) {
-            string text = String.Empty;
-            GetRaw(plain).ForEach(t => text += t.Item2);
-            return text;
+            return result;
         }
     }
 }

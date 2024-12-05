@@ -6,15 +6,20 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    Background="{ThemeResource SystemControlAcrylicWindowBrush}" Loaded="OnLoaded">
+    Background="{ThemeResource AcrylicBackgroundFillColorBaseBrush}" Loaded="OnLoaded">
 
     <Grid Margin="6">
         <Grid.ColumnDefinitions>
             <ColumnDefinition/>
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
         <TextBox x:Name="Plain" Margin="6" Grid.Column="0" TextWrapping="Wrap" IsSpellCheckEnabled="False" TextChanging="OnTextChanging"/>
-        <ScrollViewer Margin="6" Grid.Column="1">
+        <TextBox x:Name="FormatDataInfo" Grid.Row="1" Margin="6" Grid.Column="0" TextWrapping="Wrap" IsSpellCheckEnabled="False" FontFamily="Lucida Console" PlaceholderText="Format data here..." TextChanging="OnTextChanging"/>
+        <ScrollViewer Grid.RowSpan="2" Margin="6" Grid.Column="1">
             <RichTextBlock x:Name="Result" TextWrapping="Wrap"/>
         </ScrollViewer>
     </Grid>

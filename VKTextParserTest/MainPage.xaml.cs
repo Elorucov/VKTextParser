@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Windows.UI.Popups;
@@ -18,45 +19,49 @@ namespace VKTextParserTest {
         }
 
         private async void OnLoaded(object sender, RoutedEventArgs e) {
-            string test = "Это [club171015120|группа] приложения Laney, а [id172894294|Эльчин Оруджев] — его разработчик. Сайт разработчика: https://elor.top, почта: me@elor.top.\n";
-            test += "Домен с точкой [id0|@test.az]; а это — [https://vk.com/spacevk|ссылка].";
-            test += "\nABCD[id1|EFGH]IJKL[club1|MNOP]QR[https://vk.com/bagledi|ST]UVW[event1|XYZ]";
+            string test = "Это [club171015120|группа] приложения Laney, а [id172894294|Эльчин Оруджев] — его разработчик. Сайт разработчика: https://elor.top, почта: me@elor.top.";
+            //test += "Домен с точкой [id0|@test.az]; а это — [https://vk.com/spacevk|ссылка].";
+            //test += "\nABCD[id1|EFGH]IJKL[club1|MNOP]QR[https://vk.com/bagledi|ST]UVW[event1|XYZ]";
+
+            string formatData = "{\"version\":1,\"items\":[{\"offset\":0,\"length\":7,\"type\":\"bold\",\"url\":\"\"},{\"offset\":15,\"length\":12,\"type\":\"italic\",\"url\":\"\"},{\"offset\":48,\"length\":15,\"type\":\"underline\",\"url\":\"\"},{\"offset\":65,\"length\":17,\"type\":\"link\",\"url\":\"https://elor.top\"}]}";
 
             await Task.Delay(100);
             Plain.Text = test;
+            FormatDataInfo.Text = formatData;
         }
 
         private void OnTextChanging(TextBox sender, TextBoxTextChangingEventArgs args) {
-            ParseForRichTextBlock(sender.Text);
-            ParseForString(sender.Text);
+            ParseForRichTextBlock();
         }
 
-        private void ParseForRichTextBlock(string plain) {
+        private void ParseForRichTextBlock() {
             Stopwatch sw = new Stopwatch();
             sw.Start();
 
-            VKTextParser.SetText(plain, Result, OnLinkClicked);
+            FormatData formatData = null;
+            try {
+                formatData = JsonConvert.DeserializeObject<FormatData>(FormatDataInfo.Text);
+            } catch (Exception ex) {
+                
+            }
+
+            Result.Blocks.Clear();
+            var result = VKTextParser.ParseText(Plain.Text, formatData, OnLinkClicked);
+            Paragraph p = new Paragraph();
+            foreach (var inline in result.TextBlockChunks) {
+                p.Inlines.Add(inline);
+            }
+            Result.Blocks.Add(p);
+
             sw.Stop();
 
-            Paragraph p = new Paragraph();
-            p.Inlines.Add(new Run { Text = $"Parsing and rendering took {sw.ElapsedMilliseconds} ms.", FontSize = 12, FontStyle = Windows.UI.Text.FontStyle.Italic });
-            Result.Blocks.Add(p);
-        }
-
-        private void ParseForString(string plain) {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            string text = VKTextParser.GetParsedText(plain);
-            sw.Stop();
-
-            Paragraph p = new Paragraph();
-            p.Inlines.Add(new LineBreak());
-            p.Inlines.Add(new LineBreak());
-            p.Inlines.Add(new Run { Text = text, FontSize = 14 });
-            p.Inlines.Add(new LineBreak());
-            p.Inlines.Add(new Run { Text = $"Parsing took {sw.ElapsedMilliseconds} ms.", FontSize = 12, FontStyle = Windows.UI.Text.FontStyle.Italic });
-            Result.Blocks.Add(p);
+            Paragraph p4 = new Paragraph();
+            p4.Inlines.Add(new LineBreak());
+            p4.Inlines.Add(new LineBreak());
+            p4.Inlines.Add(new Run { Text = result.PlainText, FontSize = 14 });
+            p4.Inlines.Add(new LineBreak());
+            p4.Inlines.Add(new Run { Text = $"Parsing took {sw.ElapsedMilliseconds} ms.", FontSize = 12, FontStyle = Windows.UI.Text.FontStyle.Italic });
+            Result.Blocks.Add(p4);
         }
 
         private async void OnLinkClicked(string link) {
